@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Cronômetro Capivara Clube</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+            
+            /* --- Adição da imagem de fundo --- */
+            background-image: file:///C:/Users/mstenico/Downloads/cap%202%20(1).pdf
+            background-size: cover; /* Faz a imagem cobrir todo o fundo */
+            background-position: center; /* Centraliza a imagem */
+            background-attachment: fixed; /* Mantém a imagem fixa ao rolar */
+            background-blend-mode: overlay; /* Adiciona um efeito de sobreposição para melhorar a legibilidade */
+        }
+        .dashboard-container {
+            width: 100%;
+            max-width: 1200px;
+            background-color: rgba(18, 18, 18, 0.8); /* Fundo semi-transparente para a área do dashboard */
+            padding: 20px;
+            border-radius: 10px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #4CAF50;
+        }
+        .live-section {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .time-box, .status-box, .record-box, .king-box {
+            background-color: #1e1e1e;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            transition: all 0.5s ease-in-out;
+        }
+        .king-box {
+            max-width: 100%;
+            background-color: #333;
+            border-color: #FFC107;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        .king-box h2 {
+            color: #FFC107;
+            font-size: 2em;
+        }
+        .king-info .nome {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .king-info .categoria {
+            font-size: 1.5em;
+            font-style: italic;
+            color: #e0e0e0;
+            margin-top: -10px;
+            margin-bottom: 5px;
+        }
+        .king-info .tempo {
+            font-size: 1.8em;
+            font-family: 'Courier New', Courier, monospace;
+            color: #e0e0e0;
+        }
+        .record-box.new-record, .king-box.new-record {
+            border-color: #FFC107;
+            box-shadow: 0 0 20px rgba(255, 193, 7, 0.7);
+            animation: flashBorder 1.5s infinite;
+        }
+        @keyframes flashBorder {
+            0% { border-color: #FFC107; }
+            50% { border-color: #ff5722; }
+            100% { border-color: #FFC107; }
+        }
+        .time-box h2, .status-box h2, .record-box h2 {
+            margin: 0 0 10px;
+            font-size: 1.5em;
+            color: #e0e0e0;
+        }
+        .time-display {
+            font-size: 4em;
+            font-weight: bold;
+            color: #FFC107;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .status-display {
+            font-size: 1.5em;
+            font-weight: bold;
+            height: 3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.2;
+        }
+        .record-display {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #FFC107;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .ranking-section {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .category-ranking {
+            background-color: #1e1e1e;
+            border: 2px solid #333;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+        }
+        .category-ranking h2 {
+            background-color: #333;
+            color: #4CAF50;
+            margin: -20px -20px 20px;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.8em;
+        }
+        .category-ranking table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .category-ranking th, .category-ranking td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        .category-ranking th {
+            background-color: #444;
+            color: #e0e0e0;
+            font-size: 1em;
+            text-transform: uppercase;
+        }
+        .category-ranking tr:nth-child(even) {
+            background-color: #2a2a2a;
+        }
+        .category-ranking td:nth-child(5) {
+            font-weight: bold;
+            color: #ffffff; /* Cor branca para o melhor tempo da Pista 2 */
+        }
+        .category-ranking td:nth-child(6),
+        .category-ranking td:nth-child(7),
+        .category-ranking td:nth-child(8) {
+            font-weight: bold;
+            color: #FFC107; /* Cor amarela para os demais tempos */
+        }
+        .category-filter {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .category-filter label, .category-filter select {
+            font-size: 1.2em;
+            color: #e0e0e0;
+        }
+        .category-filter select {
+            background-color: #333;
+            border: 1px solid #555;
+            padding: 8px;
+            border-radius: 5px;
+            color: #e0e0e0;
+        }
+    </style>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header>
+            <h1>Capivara Clube - Dashboard</h1>
+            <p>Status da Conexão: <span id="connection-status" style="color: #FF5722;">Desconectado</span></p>
+        </header>
+
+        <div class="live-section">
+            <div class="time-box">
+                <h2>Pista 1</h2>
+                <div id="pista1-time" class="time-display">0.000s</div>
+            </div>
+            <div class="time-box">
+                <h2>Pista 2</h2>
+                <div id="pista2-time" class="time-display">0.000s</div>
+            </div>
+        </div>
+
+        <div class="live-section">
+            <div class="record-box" id="record-pista1-box">
+                <h2>RECORD PISTA 1</h2>
+                <div id="record-pista1-time" class="record-display">0.000s</div>
+            </div>
+            <div class="record-box" id="record-pista2-box">
+                <h2>RECORD PISTA 2</h2>
+                <div id="record-pista2-time" class="record-display">0.000s</div>
+            </div>
+        </div>
+
+        <div class="live-section">
+            <div class="king-box">
+                <h2>REI DA PISTA</h2>
+                <div class="king-info">
+                    <div id="king-name" class="nome">Aguardando...</div>
+                    <div id="king-category" class="categoria"></div>
+                    <div id="king-time" class="tempo">0.000s</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="category-filter">
+            <label for="categoria">Filtrar por Categoria:</label>
+            <select id="categoria" onchange="updateRanking()"></select>
+        </div>
+
+        <div class="ranking-section">
+            <div class="category-ranking">
+                <h2>Ranking</h2>
+                <table id="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>Posição</th>
+                            <th>Nome</th>
+                            <th>Categoria</th>
+                            <th>Melhor Tempo P1</th>
+                            <th>Melhor Tempo P2</th>
+                            <th>Somatória</th>
+                            <th>Diferença</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURAÇÃO ---
+        const googleScriptURL = "https://script.google.com/macros/s/AKfycbzcahO1fxsYOJsnznUs98co4OQByHxnmLkVET1F2_pUuXqf7XThRmgBXbkt9I-7NcM/exec";
+        
+        const mqttServer = 'wss://broker.hivemq.com:8884/mqtt';
+        const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
+        
+        const TOPIC_RESULTADO_P1 = "cronometro/resultado/pista1";
+        const TOPIC_RESULTADO_P2 = "cronometro/resultado/pista2";
+
+        const client = mqtt.connect(mqttServer, { clientId: clientId });
+
+        const connectionStatusEl = document.getElementById('connection-status');
+        const pista1TimeEl = document.getElementById('pista1-time');
+        const pista2TimeEl = document.getElementById('pista2-time');
+        const rankingBodyEl = document.getElementById('ranking-body');
+        const categoriaSelectEl = document.getElementById('categoria');
+        
+        // Elementos dos recordes
+        const recordPista1TimeEl = document.getElementById('record-pista1-time');
+        const recordPista2TimeEl = document.getElementById('record-pista2-time');
+        const recordPista1BoxEl = document.getElementById('record-pista1-box');
+        const recordPista2BoxEl = document.getElementById('record-pista2-box');
+
+        // Elementos do Rei da Pista
+        const kingNameEl = document.getElementById('king-name');
+        const kingCategoryEl = document.getElementById('king-category');
+        const kingTimeEl = document.getElementById('king-time');
+
+        // Variáveis globais para armazenar os recordes
+        let recordPista1 = Infinity;
+        let recordPista2 = Infinity;
+
+        // --- LÓGICA DE CONEXÃO MQTT ---
+        client.on('connect', () => {
+            console.log('Conectado ao broker MQTT.');
+            connectionStatusEl.textContent = 'Conectado';
+            connectionStatusEl.style.color = '#4CAF50';
+            
+            client.subscribe(TOPIC_RESULTADO_P1);
+            client.subscribe(TOPIC_RESULTADO_P2);
+            
+            console.log('Inscrito nos tópicos.');
+            updateRanking();
+        });
+
+        client.on('error', (error) => {
+            console.error('Erro de conexão MQTT:', error);
+            connectionStatusEl.textContent = 'Erro';
+            connectionStatusEl.style.color = '#F44336';
+        });
+
+        client.on('message', (topic, message) => {
+            const messageString = message.toString();
+            
+            if (topic === TOPIC_RESULTADO_P1) {
+                const tempo = parseFloat(messageString);
+                pista1TimeEl.textContent = tempo.toFixed(3) + "s";
+                checkAndUpdateRecords(tempo, 'pista1');
+            } else if (topic === TOPIC_RESULTADO_P2) {
+                const tempo = parseFloat(messageString);
+                pista2TimeEl.textContent = tempo.toFixed(3) + "s";
+                checkAndUpdateRecords(tempo, 'pista2');
+                setTimeout(updateRanking, 2000);
+            }
+        });
+
+        // Função para checar e atualizar os recordes
+        function checkAndUpdateRecords(tempo, pista) {
+            if (pista === 'pista1' && tempo < recordPista1 && tempo > 0) {
+                recordPista1 = tempo;
+                recordPista1TimeEl.textContent = recordPista1.toFixed(3) + "s";
+                recordPista1BoxEl.classList.add('new-record');
+                setTimeout(() => {
+                    recordPista1BoxEl.classList.remove('new-record');
+                }, 3000);
+            } else if (pista === 'pista2' && tempo < recordPista2 && tempo > 0) {
+                recordPista2 = tempo;
+                recordPista2TimeEl.textContent = recordPista2.toFixed(3) + "s";
+                recordPista2BoxEl.classList.add('new-record');
+                setTimeout(() => {
+                    recordPista2BoxEl.classList.remove('new-record');
+                }, 3000);
+            }
+        }
+
+        // --- LÓGICA DO RANKING DINÂMICO ---
+        async function updateRanking() {
+            console.log("1. Iniciando a atualização do ranking...");
+            try {
+                const response = await fetch(googleScriptURL);
+                console.log("2. Resposta recebida:", response.status);
+
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
+                }
+
+                const responseBody = await response.text();
+                console.log("3. Conteúdo da resposta (texto):", responseBody);
+
+                try {
+                    const data = JSON.parse(responseBody);
+                    console.log("4. Dados da planilha processados:", data);
+
+                    if (!Array.isArray(data)) {
+                        throw new Error("Resposta do script inválida. Esperado um array.");
+                    }
+
+                    // Encontra e exibe os recordes gerais
+                    let recordP1Found = Infinity;
+                    let recordP2Found = Infinity;
+                    
+                    data.forEach(item => {
+                        if (item.tempo_p1 > 0 && item.tempo_p1 < recordP1Found) {
+                            recordP1Found = item.tempo_p1;
+                        }
+                        if (item.tempo_p2 > 0 && item.tempo_p2 < recordP2Found) {
+                            recordP2Found = item.tempo_p2;
+                        }
+                    });
+
+                    // Atualiza os recordes globais se necessário
+                    if (recordP1Found < recordPista1) {
+                        recordPista1 = recordP1Found;
+                        recordPista1TimeEl.textContent = recordPista1.toFixed(3) + 's';
+                    }
+                    if (recordP2Found < recordPista2) {
+                        recordPista2 = recordP2Found;
+                        recordPista2TimeEl.textContent = recordP2Found.toFixed(3) + 's';
+                    }
+                    
+                    // Processa os tempos para encontrar o melhor tempo de cada competidor por pista
+                    const competidores = {};
+                    data.forEach(item => {
+                        // Processa Pista 1
+                        if (item.id_p1 && item.tempo_p1 > 0) {
+                            const id_p1 = item.id_p1;
+                            if (!competidores[id_p1]) {
+                                competidores[id_p1] = {
+                                    nome: item.nome_p1,
+                                    carro: item.carro_p1,
+                                    categoria: item.categoria_p1,
+                                    melhorTempoP1: item.tempo_p1,
+                                    melhorTempoP2: null
+                                };
+                            } else if (competidores[id_p1].melhorTempoP1 === null || item.tempo_p1 < competidores[id_p1].melhorTempoP1) {
+                                competidores[id_p1].melhorTempoP1 = item.tempo_p1;
+                            }
+                        }
+                        // Processa Pista 2
+                        if (item.id_p2 && item.tempo_p2 > 0) {
+                            const id_p2 = item.id_p2;
+                            if (!competidores[id_p2]) {
+                                competidores[id_p2] = {
+                                    nome: item.nome_p2,
+                                    carro: item.carro_p2,
+                                    categoria: item.categoria_p2,
+                                    melhorTempoP1: null,
+                                    melhorTempoP2: item.tempo_p2
+                                };
+                            } else if (competidores[id_p2].melhorTempoP2 === null || item.tempo_p2 < competidores[id_p2].melhorTempoP2) {
+                                competidores[id_p2].melhorTempoP2 = item.tempo_p2;
+                            }
+                        }
+                    });
+
+                    // Converte o objeto de competidores para um array e calcula a somatória
+                    let rankingArray = Object.values(competidores).map(c => {
+                        const soma = (c.melhorTempoP1 || 0) + (c.melhorTempoP2 || 0);
+                        return {
+                            ...c,
+                            somaMelhoresTempos: soma
+                        };
+                    });
+
+                    // Filtra competidores que não têm tempo em ambas as pistas e ordena
+                    rankingArray = rankingArray.filter(c => c.melhorTempoP1 > 0 && c.melhorTempoP2 > 0);
+                    rankingArray.sort((a, b) => a.somaMelhoresTempos - b.somaMelhoresTempos);
+
+                    // Exibe o Rei da Pista
+                    if (rankingArray.length > 0) {
+                        const king = rankingArray[0];
+                        kingNameEl.textContent = king.nome;
+                        kingCategoryEl.textContent = king.categoria;
+                        kingTimeEl.textContent = king.somaMelhoresTempos.toFixed(3) + 's';
+                    } else {
+                        kingNameEl.textContent = 'Nenhum competidor';
+                        kingCategoryEl.textContent = 'com tempos totais';
+                        kingTimeEl.textContent = '';
+                    }
+
+                    const categoriaSelecionada = categoriaSelectEl.value;
+                    if (categoriaSelecionada !== 'TODOS') {
+                        rankingArray = rankingArray.filter(c => c.categoria === categoriaSelecionada);
+                    }
+
+                    // Preenche o filtro de categorias
+                    const categorias = new Set(Object.values(competidores).map(c => c.categoria).filter(c => c));
+                    const categoriasArray = ['TODOS', ...Array.from(categorias).sort()];
+                    categoriaSelectEl.innerHTML = categoriasArray.map(c => `<option value="${c}" ${c === categoriaSelecionada ? 'selected' : ''}>${c}</option>`).join('');
+
+                    // Limpa a tabela antes de adicionar novos dados
+                    rankingBodyEl.innerHTML = '';
+                    
+                    // Calcula a diferença para o primeiro colocado
+                    const melhorTempoTotal = rankingArray.length > 0 ? rankingArray[0].somaMelhoresTempos : 0;
+                    
+                    // Preenche a tabela com os dados ordenados
+                    if (rankingArray.length > 0) {
+                        let i = 1;
+                        rankingArray.forEach(competidor => {
+                            const row = document.createElement('tr');
+                            const diferenca = competidor.somaMelhoresTempos - melhorTempoTotal;
+                            row.innerHTML = `
+                                <td>${i++}</td>
+                                <td>${competidor.nome}</td>
+                                <td>${competidor.categoria}</td>
+                                <td>${competidor.melhorTempoP1 ? competidor.melhorTempoP1.toFixed(3) + 's' : 'N/A'}</td>
+                                <td>${competidor.melhorTempoP2 ? competidor.melhorTempoP2.toFixed(3) + 's' : 'N/A'}</td>
+                                <td>${competidor.somaMelhoresTempos ? competidor.somaMelhoresTempos.toFixed(3) + 's' : 'N/A'}</td>
+                                <td>${diferenca > 0 ? '+' + diferenca.toFixed(3) + 's' : '-'}</td>
+                            `;
+                            rankingBodyEl.appendChild(row);
+                        });
+                    } else {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `<td colspan="7" style="text-align: center;">Nenhum competidor com tempos registrados para ambas as pistas.</td>`;
+                        rankingBodyEl.appendChild(row);
+                    }
+
+                    console.log("5. Ranking exibido com sucesso.");
+                } catch (jsonError) {
+                    console.error("Erro ao converter a resposta para JSON:", jsonError);
+                    rankingBodyEl.innerHTML = '<tr><td colspan="7" style="color:red; text-align:center;">Erro na resposta do servidor.</td></tr>';
+                }
+
+            } catch (error) {
+                console.error("Falha na requisição ao Google Apps Script:", error);
+                rankingBodyEl.innerHTML = '<tr><td colspan="7" style="color:red; text-align:center;">Erro de conexão com o Apps Script.</td></tr>';
+            }
+        }
+        
+        setInterval(updateRanking, 10000); // Atualiza a cada 10 segundos
+        
+        // Chamada inicial
+        document.addEventListener('DOMContentLoaded', updateRanking);
+    </script>
+</body>
+</html>
