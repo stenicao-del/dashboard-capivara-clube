@@ -14,18 +14,16 @@
             align-items: center;
             padding: 20px;
             min-height: 100vh;
-            
-            /* --- Adição da imagem de fundo --- */
-            background-image: file:///C:/Users/mstenico/Downloads/cap%202%20(1).pdf
-            background-size: cover; /* Faz a imagem cobrir todo o fundo */
-            background-position: center; /* Centraliza a imagem */
-            background-attachment: fixed; /* Mantém a imagem fixa ao rolar */
-            background-blend-mode: overlay; /* Adiciona um efeito de sobreposição para melhorar a legibilidade */
+            background-image: url('caminho/para/sua/imagem.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-blend-mode: overlay;
         }
         .dashboard-container {
             width: 100%;
             max-width: 1200px;
-            background-color: rgba(18, 18, 18, 0.8); /* Fundo semi-transparente para a área do dashboard */
+            background-color: rgba(18, 18, 18, 0.8);
             padding: 20px;
             border-radius: 10px;
         }
@@ -103,6 +101,14 @@
             color: #FFC107;
             font-family: 'Courier New', Courier, monospace;
         }
+        .lcd-print {
+            white-space: pre-wrap;
+            font-size: 1.5em;
+            font-weight: normal;
+            line-height: 1.2;
+            color: #e0e0e0;
+            font-family: 'Courier New', Courier, monospace;
+        }
         .status-display {
             font-size: 1.5em;
             font-weight: bold;
@@ -160,13 +166,13 @@
         }
         .category-ranking td:nth-child(5) {
             font-weight: bold;
-            color: #ffffff; /* Cor branca para o melhor tempo da Pista 2 */
+            color: #ffffff;
         }
         .category-ranking td:nth-child(6),
         .category-ranking td:nth-child(7),
         .category-ranking td:nth-child(8) {
             font-weight: bold;
-            color: #FFC107; /* Cor amarela para os demais tempos */
+            color: #FFC107;
         }
         .category-filter {
             margin-bottom: 20px;
@@ -195,12 +201,12 @@
 
         <div class="live-section">
             <div class="time-box">
-                <h2>Pista 1</h2>
-                <div id="pista1-time" class="time-display">0.000s</div>
+                <h2>PISTA 1 - TEMPO FINAL</h2>
+                <div id="pista1-time" class="time-display">00.000s</div>
             </div>
             <div class="time-box">
-                <h2>Pista 2</h2>
-                <div id="pista2-time" class="time-display">0.000s</div>
+                <h2>PISTA 2 - TEMPO FINAL</h2>
+                <div id="pista2-time" class="time-display">00.000s</div>
             </div>
         </div>
 
@@ -247,7 +253,7 @@
                         </tr>
                     </thead>
                     <tbody id="ranking-body">
-                        </tbody>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -255,250 +261,197 @@
 
     <script>
         // --- CONFIGURAÇÃO ---
-        const googleScriptURL = "https://script.google.com/macros/s/AKfycbzcahO1fxsYOJsnznUs98co4OQByHxnmLkVET1F2_pUuXqf7XThRmgBXbkt9I-7NcM/exec";
+        const googleScriptURL = "https://script.google.com/macros/s/AKfycbw75o325mV-R3YQJuBMWB20LjeFoQ_VH5bQ6nPK_i4yY77KV_JF7zAvpGFFUoG9SZo/exec";
         
         const mqttServer = 'wss://broker.hivemq.com:8884/mqtt';
         const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
         
-        const TOPIC_RESULTADO_P1 = "cronometro/resultado/pista1";
-        const TOPIC_RESULTADO_P2 = "cronometro/resultado/pista2";
+        // Tópicos que o seu ESP está publicando
+        const TOPIC_TEMPO_FINAL_P1 = "cronometro/resultado/pista1";
+        const TOPIC_TEMPO_FINAL_P2 = "cronometro/resultado/pista2";
+        const TOPIC_LCD_STATUS = "cronometro/lcd";
 
         const client = mqtt.connect(mqttServer, { clientId: clientId });
 
-        const connectionStatusEl = document.getElementById('connection-status');
-        const pista1TimeEl = document.getElementById('pista1-time');
-        const pista2TimeEl = document.getElementById('pista2-time');
-        const rankingBodyEl = document.getElementById('ranking-body');
-        const categoriaSelectEl = document.getElementById('categoria');
+        const elements = {
+            connectionStatus: document.getElementById('connection-status'),
+            pista1Time: document.getElementById('pista1-time'),
+            pista2Time: document.getElementById('pista2-time'),
+            rankingBody: document.getElementById('ranking-body'),
+            categoriaSelect: document.getElementById('categoria'),
+            recordPista1Time: document.getElementById('record-pista1-time'),
+            recordPista2Time: document.getElementById('record-pista2-time'),
+            recordPista1Box: document.getElementById('record-pista1-box'),
+            recordPista2Box: document.getElementById('record-pista2-box'),
+            kingName: document.getElementById('king-name'),
+            kingCategory: document.getElementById('king-category'),
+            kingTime: document.getElementById('king-time')
+        };
         
-        // Elementos dos recordes
-        const recordPista1TimeEl = document.getElementById('record-pista1-time');
-        const recordPista2TimeEl = document.getElementById('record-pista2-time');
-        const recordPista1BoxEl = document.getElementById('record-pista1-box');
-        const recordPista2BoxEl = document.getElementById('record-pista2-box');
+        const pistaRecords = {
+            pista1: {
+                record: Infinity,
+                timeEl: elements.recordPista1Time,
+                boxEl: elements.recordPista1Box
+            },
+            pista2: {
+                record: Infinity,
+                timeEl: elements.recordPista2Time,
+                boxEl: elements.recordPista2Box
+            }
+        };
 
-        // Elementos do Rei da Pista
-        const kingNameEl = document.getElementById('king-name');
-        const kingCategoryEl = document.getElementById('king-category');
-        const kingTimeEl = document.getElementById('king-time');
-
-        // Variáveis globais para armazenar os recordes
-        let recordPista1 = Infinity;
-        let recordPista2 = Infinity;
-
-        // --- LÓGICA DE CONEXÃO MQTT ---
         client.on('connect', () => {
             console.log('Conectado ao broker MQTT.');
-            connectionStatusEl.textContent = 'Conectado';
-            connectionStatusEl.style.color = '#4CAF50';
+            elements.connectionStatus.textContent = 'Conectado';
+            elements.connectionStatus.style.color = '#4CAF50';
             
-            client.subscribe(TOPIC_RESULTADO_P1);
-            client.subscribe(TOPIC_RESULTADO_P2);
+            // Subscreve aos tópicos que o ESP está publicando
+            client.subscribe(TOPIC_TEMPO_FINAL_P1);
+            client.subscribe(TOPIC_TEMPO_FINAL_P2);
+            client.subscribe(TOPIC_LCD_STATUS);
             
-            console.log('Inscrito nos tópicos.');
+            console.log('Inscrito nos tópicos de resultado final.');
             updateRanking();
         });
 
         client.on('error', (error) => {
             console.error('Erro de conexão MQTT:', error);
-            connectionStatusEl.textContent = 'Erro';
-            connectionStatusEl.style.color = '#F44336';
+            elements.connectionStatus.textContent = 'Erro';
+            elements.connectionStatus.style.color = '#F44336';
         });
 
         client.on('message', (topic, message) => {
             const messageString = message.toString();
-            
-            if (topic === TOPIC_RESULTADO_P1) {
+            console.log(`Mensagem recebida no tópico ${topic}: ${messageString}`);
+
+            // Apenas atualiza a caixa de tempo final
+            if (topic === TOPIC_TEMPO_FINAL_P1) {
                 const tempo = parseFloat(messageString);
-                pista1TimeEl.textContent = tempo.toFixed(3) + "s";
-                checkAndUpdateRecords(tempo, 'pista1');
-            } else if (topic === TOPIC_RESULTADO_P2) {
+                elements.pista1Time.textContent = tempo.toFixed(3) + "s";
+                checkAndUpdateRecord(tempo, 'pista1');
+            } else if (topic === TOPIC_TEMPO_FINAL_P2) {
                 const tempo = parseFloat(messageString);
-                pista2TimeEl.textContent = tempo.toFixed(3) + "s";
-                checkAndUpdateRecords(tempo, 'pista2');
-                setTimeout(updateRanking, 2000);
+                elements.pista2Time.textContent = tempo.toFixed(3) + "s";
+                checkAndUpdateRecord(tempo, 'pista2');
+            } else if (topic === TOPIC_LCD_STATUS) {
+                // Lógica para resetar os tempos no dashboard quando uma nova corrida é iniciada
+                if (messageString.includes("Pistas Liberadas")) {
+                    elements.pista1Time.textContent = "00.000s";
+                    elements.pista2Time.textContent = "00.000s";
+                }
             }
         });
 
-        // Função para checar e atualizar os recordes
-        function checkAndUpdateRecords(tempo, pista) {
-            if (pista === 'pista1' && tempo < recordPista1 && tempo > 0) {
-                recordPista1 = tempo;
-                recordPista1TimeEl.textContent = recordPista1.toFixed(3) + "s";
-                recordPista1BoxEl.classList.add('new-record');
+        function checkAndUpdateRecord(tempo, pistaId) {
+            const pista = pistaRecords[pistaId];
+            if (tempo > 0 && tempo < pista.record) {
+                pista.record = tempo;
+                pista.timeEl.textContent = pista.record.toFixed(3) + "s";
+                pista.boxEl.classList.add('new-record');
                 setTimeout(() => {
-                    recordPista1BoxEl.classList.remove('new-record');
-                }, 3000);
-            } else if (pista === 'pista2' && tempo < recordPista2 && tempo > 0) {
-                recordPista2 = tempo;
-                recordPista2TimeEl.textContent = recordPista2.toFixed(3) + "s";
-                recordPista2BoxEl.classList.add('new-record');
-                setTimeout(() => {
-                    recordPista2BoxEl.classList.remove('new-record');
+                    pista.boxEl.classList.remove('new-record');
                 }, 3000);
             }
         }
 
-        // --- LÓGICA DO RANKING DINÂMICO ---
         async function updateRanking() {
-            console.log("1. Iniciando a atualização do ranking...");
             try {
                 const response = await fetch(googleScriptURL);
-                console.log("2. Resposta recebida:", response.status);
-
                 if (!response.ok) {
                     throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
                 }
-
-                const responseBody = await response.text();
-                console.log("3. Conteúdo da resposta (texto):", responseBody);
-
-                try {
-                    const data = JSON.parse(responseBody);
-                    console.log("4. Dados da planilha processados:", data);
-
-                    if (!Array.isArray(data)) {
-                        throw new Error("Resposta do script inválida. Esperado um array.");
-                    }
-
-                    // Encontra e exibe os recordes gerais
-                    let recordP1Found = Infinity;
-                    let recordP2Found = Infinity;
-                    
-                    data.forEach(item => {
-                        if (item.tempo_p1 > 0 && item.tempo_p1 < recordP1Found) {
-                            recordP1Found = item.tempo_p1;
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(`Erro do Apps Script: ${data.error}`);
+                }
+                
+                const competidores = {};
+                data.forEach(item => {
+                    if (item.id_p1 && item.tempo_p1 > 0) {
+                        if (!competidores[item.id_p1]) {
+                            competidores[item.id_p1] = { nome: item.nome_p1, categoria: item.categoria_p1, melhorTempoP1: Infinity, melhorTempoP2: Infinity };
                         }
-                        if (item.tempo_p2 > 0 && item.tempo_p2 < recordP2Found) {
-                            recordP2Found = item.tempo_p2;
+                        competidores[item.id_p1].melhorTempoP1 = Math.min(competidores[item.id_p1].melhorTempoP1, item.tempo_p1);
+                    }
+                    if (item.id_p2 && item.tempo_p2 > 0) {
+                        if (!competidores[item.id_p2]) {
+                            competidores[item.id_p2] = { nome: item.nome_p2, categoria: item.categoria_p2, melhorTempoP1: Infinity, melhorTempoP2: Infinity };
                         }
-                    });
-
-                    // Atualiza os recordes globais se necessário
-                    if (recordP1Found < recordPista1) {
-                        recordPista1 = recordP1Found;
-                        recordPista1TimeEl.textContent = recordPista1.toFixed(3) + 's';
+                        competidores[item.id_p2].melhorTempoP2 = Math.min(competidores[item.id_p2].melhorTempoP2, item.tempo_p2);
                     }
-                    if (recordP2Found < recordPista2) {
-                        recordPista2 = recordP2Found;
-                        recordPista2TimeEl.textContent = recordP2Found.toFixed(3) + 's';
-                    }
-                    
-                    // Processa os tempos para encontrar o melhor tempo de cada competidor por pista
-                    const competidores = {};
-                    data.forEach(item => {
-                        // Processa Pista 1
-                        if (item.id_p1 && item.tempo_p1 > 0) {
-                            const id_p1 = item.id_p1;
-                            if (!competidores[id_p1]) {
-                                competidores[id_p1] = {
-                                    nome: item.nome_p1,
-                                    carro: item.carro_p1,
-                                    categoria: item.categoria_p1,
-                                    melhorTempoP1: item.tempo_p1,
-                                    melhorTempoP2: null
-                                };
-                            } else if (competidores[id_p1].melhorTempoP1 === null || item.tempo_p1 < competidores[id_p1].melhorTempoP1) {
-                                competidores[id_p1].melhorTempoP1 = item.tempo_p1;
-                            }
-                        }
-                        // Processa Pista 2
-                        if (item.id_p2 && item.tempo_p2 > 0) {
-                            const id_p2 = item.id_p2;
-                            if (!competidores[id_p2]) {
-                                competidores[id_p2] = {
-                                    nome: item.nome_p2,
-                                    carro: item.carro_p2,
-                                    categoria: item.categoria_p2,
-                                    melhorTempoP1: null,
-                                    melhorTempoP2: item.tempo_p2
-                                };
-                            } else if (competidores[id_p2].melhorTempoP2 === null || item.tempo_p2 < competidores[id_p2].melhorTempoP2) {
-                                competidores[id_p2].melhorTempoP2 = item.tempo_p2;
-                            }
-                        }
-                    });
+                });
 
-                    // Converte o objeto de competidores para um array e calcula a somatória
-                    let rankingArray = Object.values(competidores).map(c => {
-                        const soma = (c.melhorTempoP1 || 0) + (c.melhorTempoP2 || 0);
-                        return {
-                            ...c,
-                            somaMelhoresTempos: soma
-                        };
-                    });
+                pistaRecords.pista1.record = Math.min(...Object.values(competidores).map(c => c.melhorTempoP1));
+                pistaRecords.pista2.record = Math.min(...Object.values(competidores).map(c => c.melhorTempoP2));
+                elements.recordPista1Time.textContent = pistaRecords.pista1.record !== Infinity ? pistaRecords.pista1.record.toFixed(3) + 's' : '0.000s';
+                elements.recordPista2Time.textContent = pistaRecords.pista2.record !== Infinity ? pistaRecords.pista2.record.toFixed(3) + 's' : '0.000s';
 
-                    // Filtra competidores que não têm tempo em ambas as pistas e ordena
-                    rankingArray = rankingArray.filter(c => c.melhorTempoP1 > 0 && c.melhorTempoP2 > 0);
-                    rankingArray.sort((a, b) => a.somaMelhoresTempos - b.somaMelhoresTempos);
+                let rankingArray = Object.values(competidores)
+                    .filter(c => c.melhorTempoP1 !== Infinity && c.melhorTempoP2 !== Infinity)
+                    .map(c => ({
+                        ...c,
+                        somaMelhoresTempos: c.melhorTempoP1 + c.melhorTempoP2
+                    }))
+                    .sort((a, b) => a.somaMelhoresTempos - b.somaMelhoresTempos);
 
-                    // Exibe o Rei da Pista
-                    if (rankingArray.length > 0) {
-                        const king = rankingArray[0];
-                        kingNameEl.textContent = king.nome;
-                        kingCategoryEl.textContent = king.categoria;
-                        kingTimeEl.textContent = king.somaMelhoresTempos.toFixed(3) + 's';
-                    } else {
-                        kingNameEl.textContent = 'Nenhum competidor';
-                        kingCategoryEl.textContent = 'com tempos totais';
-                        kingTimeEl.textContent = '';
-                    }
-
-                    const categoriaSelecionada = categoriaSelectEl.value;
-                    if (categoriaSelecionada !== 'TODOS') {
-                        rankingArray = rankingArray.filter(c => c.categoria === categoriaSelecionada);
-                    }
-
-                    // Preenche o filtro de categorias
-                    const categorias = new Set(Object.values(competidores).map(c => c.categoria).filter(c => c));
-                    const categoriasArray = ['TODOS', ...Array.from(categorias).sort()];
-                    categoriaSelectEl.innerHTML = categoriasArray.map(c => `<option value="${c}" ${c === categoriaSelecionada ? 'selected' : ''}>${c}</option>`).join('');
-
-                    // Limpa a tabela antes de adicionar novos dados
-                    rankingBodyEl.innerHTML = '';
-                    
-                    // Calcula a diferença para o primeiro colocado
-                    const melhorTempoTotal = rankingArray.length > 0 ? rankingArray[0].somaMelhoresTempos : 0;
-                    
-                    // Preenche a tabela com os dados ordenados
-                    if (rankingArray.length > 0) {
-                        let i = 1;
-                        rankingArray.forEach(competidor => {
-                            const row = document.createElement('tr');
-                            const diferenca = competidor.somaMelhoresTempos - melhorTempoTotal;
-                            row.innerHTML = `
-                                <td>${i++}</td>
-                                <td>${competidor.nome}</td>
-                                <td>${competidor.categoria}</td>
-                                <td>${competidor.melhorTempoP1 ? competidor.melhorTempoP1.toFixed(3) + 's' : 'N/A'}</td>
-                                <td>${competidor.melhorTempoP2 ? competidor.melhorTempoP2.toFixed(3) + 's' : 'N/A'}</td>
-                                <td>${competidor.somaMelhoresTempos ? competidor.somaMelhoresTempos.toFixed(3) + 's' : 'N/A'}</td>
-                                <td>${diferenca > 0 ? '+' + diferenca.toFixed(3) + 's' : '-'}</td>
-                            `;
-                            rankingBodyEl.appendChild(row);
-                        });
-                    } else {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `<td colspan="7" style="text-align: center;">Nenhum competidor com tempos registrados para ambas as pistas.</td>`;
-                        rankingBodyEl.appendChild(row);
-                    }
-
-                    console.log("5. Ranking exibido com sucesso.");
-                } catch (jsonError) {
-                    console.error("Erro ao converter a resposta para JSON:", jsonError);
-                    rankingBodyEl.innerHTML = '<tr><td colspan="7" style="color:red; text-align:center;">Erro na resposta do servidor.</td></tr>';
+                if (rankingArray.length > 0) {
+                    const king = rankingArray[0];
+                    elements.kingName.textContent = king.nome;
+                    elements.kingCategory.textContent = king.categoria;
+                    elements.kingTime.textContent = king.somaMelhoresTempos.toFixed(3) + 's';
+                } else {
+                    elements.kingName.textContent = 'Nenhum competidor';
+                    elements.kingCategory.textContent = 'com tempos totais';
+                    elements.kingTime.textContent = '';
                 }
 
+                const categorias = new Set(Object.values(competidores).map(c => c.categoria).filter(c => c));
+                const categoriasArray = ['TODOS', ...Array.from(categorias).sort()];
+                const categoriaSelecionada = elements.categoriaSelect.value;
+                elements.categoriaSelect.innerHTML = categoriasArray.map(c => `<option value="${c}" ${c === categoriaSelecionada ? 'selected' : ''}>${c}</option>`).join('');
+                
+                if (categoriaSelecionada !== 'TODOS' && categoriaSelecionada) {
+                    rankingArray = rankingArray.filter(c => c.categoria === categoriaSelecionada);
+                }
+
+                elements.rankingBody.innerHTML = '';
+                
+                if (rankingArray.length > 0) {
+                    const melhorTempoTotal = rankingArray[0].somaMelhoresTempos;
+                    rankingArray.forEach((competidor, index) => {
+                        const diferenca = competidor.somaMelhoresTempos - melhorTempoTotal;
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${index + 1}</td>
+                            <td>${competidor.nome}</td>
+                            <td>${competidor.categoria}</td>
+                            <td>${competidor.melhorTempoP1.toFixed(3) + 's'}</td>
+                            <td>${competidor.melhorTempoP2.toFixed(3) + 's'}</td>
+                            <td>${competidor.somaMelhoresTempos.toFixed(3) + 's'}</td>
+                            <td>${diferenca > 0 ? '+' + diferenca.toFixed(3) + 's' : '-'}</td>
+                        `;
+                        elements.rankingBody.appendChild(row);
+                    });
+                } else {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td colspan="7" style="text-align: center;">Nenhum competidor com tempos registrados para ambas as pistas.</td>`;
+                    elements.rankingBody.appendChild(row);
+                }
             } catch (error) {
                 console.error("Falha na requisição ao Google Apps Script:", error);
-                rankingBodyEl.innerHTML = '<tr><td colspan="7" style="color:red; text-align:center;">Erro de conexão com o Apps Script.</td></tr>';
+                elements.rankingBody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Erro de conexão com o Apps Script: ${error.message}</td></tr>`;
             }
         }
         
-        setInterval(updateRanking, 10000); // Atualiza a cada 10 segundos
+        // Chamada da função para atualização do ranking a cada 5 segundos
+        setInterval(updateRanking, 5000);
         
-        // Chamada inicial
-        document.addEventListener('DOMContentLoaded', updateRanking);
+        // Chamada inicial para carregar o ranking e os records
+        document.addEventListener('DOMContentLoaded', () => {
+            updateRanking();
+        });
     </script>
 </body>
 </html>
