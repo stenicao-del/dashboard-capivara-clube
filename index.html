@@ -189,6 +189,12 @@
             border-radius: 5px;
             color: #e0e0e0;
         }
+        
+        /* NOVO: CSS para rolagem horizontal em telas pequenas */
+        .table-container {
+            overflow-x: auto;
+        }
+
     </style>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
@@ -240,28 +246,30 @@
         <div class="ranking-section">
             <div class="category-ranking">
                 <h2>Ranking</h2>
-                <table id="ranking-table">
-                    <thead>
-                        <tr>
-                            <th>Posição</th>
-                            <th>Nome</th>
-                            <th>Categoria</th>
-                            <th>Melhor Tempo P1</th>
-                            <th>Melhor Tempo P2</th>
-                            <th>Somatória</th>
-                            <th>Diferença</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ranking-body">
-                    </tbody>
-                </table>
+                <div class="table-container">
+                    <table id="ranking-table">
+                        <thead>
+                            <tr>
+                                <th>Posição</th>
+                                <th>Nome</th>
+                                <th>Categoria</th>
+                                <th>Melhor Tempo P1</th>
+                                <th>Melhor Tempo P2</th>
+                                <th>Somatória</th>
+                                <th>Diferença</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-body">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         // --- CONFIGURAÇÃO ---
-        const googleScriptURL = "https://script.google.com/macros/s/AKfycbwohzdxE8dzuF4fqU0vo9QVMiWg9ynbWNTgX1n0M2KWVIgGaXzuY4KhQr_oG2EXeYs/exec";
+        const googleScriptURL = "https://script.google.com/macros/s/AKfycbwsdGxPrl-eaQcaGC5xFHgQO1QkfGYly2YcF07UjAFHGedOPycz4wcHNA9MZLkEI8g/exec";
         
         const mqttServer = 'wss://broker.hivemq.com:8884/mqtt';
         const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
@@ -455,4 +463,3 @@
     </script>
 </body>
 </html>
-
