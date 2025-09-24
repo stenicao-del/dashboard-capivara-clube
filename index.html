@@ -77,22 +77,22 @@
             font-size: 2.2em;
             font-weight: bold;
         }
-        .king-info .nome {
-            font-size: 2.8em;
-            font-weight: bold;
-            color: #4CAF50;
-            text-shadow: 1px 1px 3px #000;
-        }
-        .king-info .categoria {
-            font-size: 1.6em;
-            font-style: italic;
-            color: #e0e0e0;
-            margin-top: -10px;
-            margin-bottom: 5px;
-        }
+        /* Estilos do novo layout do Rei da Pista */
         .king-info .tempo {
-            font-size: 2em;
+            font-size: 4em;
+            font-weight: bold;
+            color: #FFC107;
             font-family: 'Courier New', Courier, monospace;
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+        }
+        .king-info .piloto-info {
+            font-size: 1.6em;
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+        .king-info .pista-record {
+            font-size: 1.2em;
+            font-style: italic;
             color: #e0e0e0;
         }
         .record-box.new-record, .king-box.new-record {
@@ -121,7 +121,6 @@
             font-family: 'Courier New', Courier, monospace;
             text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
         }
-        /* Estilos para o nome do recordista */
         .record-info {
             font-size: 1.2em;
             margin-top: 5px;
@@ -215,14 +214,14 @@
             .time-display, .record-display {
                 font-size: 3em;
             }
-            .king-info .nome {
-                font-size: 2em;
+            .king-info .tempo {
+                font-size: 3em;
             }
-            .king-info .categoria {
+            .king-info .piloto-info {
                 font-size: 1.2em;
             }
-            .king-info .tempo {
-                font-size: 1.5em;
+            .king-info .pista-record {
+                font-size: 1em;
             }
         }
     </style>
@@ -263,9 +262,9 @@
             <div class="king-box">
                 <h2>REI DA PISTA</h2>
                 <div class="king-info">
-                    <div id="king-name" class="nome">Aguardando tempos completos</div>
-                    <div id="king-category" class="categoria"></div>
                     <div id="king-time" class="tempo">0.000s</div>
+                    <div id="king-piloto-info" class="piloto-info"></div>
+                    <div id="king-track" class="pista-record"></div>
                 </div>
             </div>
         </div>
@@ -301,7 +300,7 @@
 
     <script>
         // --- CONFIGURAÇÃO ---
-        const googleScriptURL = "https://script.google.com/macros/s/AKfycbzBw6IzL-_fh1LJmdutUvE-Wnv8XHrsm2AYWoVA1sAaVRq-yrsk-sSZsokhUIesIng/exec";
+        const googleScriptURL = "https://script.google.com/macros/s/AKfycbwsdGxPrl-eaQcaGC5xFHgQO1QkfGYly2YcF07UjAFHGedOPycz4wcHNA9MZLkEI8g/exec";
         
         const mqttServer = 'wss://broker.hivemq.com:8884/mqtt';
         const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
@@ -325,9 +324,9 @@
             recordPista2Box: document.getElementById('record-pista2-box'),
             recordPista1Info: document.getElementById('record-pista1-info'),
             recordPista2Info: document.getElementById('record-pista2-info'),
-            kingName: document.getElementById('king-name'),
-            kingCategory: document.getElementById('king-category'),
-            kingTime: document.getElementById('king-time')
+            kingTime: document.getElementById('king-time'),
+            kingPilotoInfo: document.getElementById('king-piloto-info'),
+            kingTrack: document.getElementById('king-track')
         };
         
         const pistaRecords = {
@@ -375,9 +374,6 @@
             if (topic === TOPIC_TEMPO_FINAL_P1) {
                 const tempo = parseFloat(messageString);
                 elements.pista1Time.textContent = tempo.toFixed(3) + "s";
-                // A verificação de recorde em tempo real precisa dos dados do piloto
-                // que virão da API. Por isso, a lógica do `checkAndUpdateRecord` é mais complexa.
-                // Mas, a exibição do tempo final é imediata.
             } else if (topic === TOPIC_TEMPO_FINAL_P2) {
                 const tempo = parseFloat(messageString);
                 elements.pista2Time.textContent = tempo.toFixed(3) + "s";
@@ -397,10 +393,12 @@
                 }
                 const data = await response.json();
                 
+                // Se a resposta do Apps Script indicar um erro, não atualizamos o dashboard.
                 if (data.error) {
                     throw new Error(`Erro do Apps Script: ${data.error}`);
                 }
                 
+                // O código abaixo só é executado se a requisição foi um sucesso.
                 const competidores = {};
                 data.forEach(item => {
                     const id = item.id_p1 || item.id_p2;
@@ -417,6 +415,34 @@
                         competidores[id].melhorTempoP2 = Math.min(competidores[id].melhorTempoP2, item.tempo_p2);
                     }
                 });
+
+                // Encontrando o Rei da Pista (menor tempo geral)
+                let kingOfTheTrack = { tempo: Infinity, nome: '', categoria: '', pista: '' };
+                data.forEach(item => {
+                    if (item.tempo_p1 > 0 && item.tempo_p1 < kingOfTheTrack.tempo) {
+                        kingOfTheTrack.tempo = item.tempo_p1;
+                        kingOfTheTrack.nome = item.nome_p1;
+                        kingOfTheTrack.categoria = item.categoria_p1;
+                        kingOfTheTrack.pista = 'Pista 1';
+                    }
+                    if (item.tempo_p2 > 0 && item.tempo_p2 < kingOfTheTrack.tempo) {
+                        kingOfTheTrack.tempo = item.tempo_p2;
+                        kingOfTheTrack.nome = item.nome_p2;
+                        kingOfTheTrack.categoria = item.categoria_p2;
+                        kingOfTheTrack.pista = 'Pista 2';
+                    }
+                });
+                
+                // Atualiza a exibição do Rei da Pista
+                if (kingOfTheTrack.tempo !== Infinity) {
+                    elements.kingTime.textContent = kingOfTheTrack.tempo.toFixed(3) + 's';
+                    elements.kingPilotoInfo.textContent = `${kingOfTheTrack.nome} - ${kingOfTheTrack.categoria}`;
+                    elements.kingTrack.textContent = kingOfTheTrack.pista;
+                } else {
+                    elements.kingTime.textContent = '0.000s';
+                    elements.kingPilotoInfo.textContent = 'Aguardando tempos...';
+                    elements.kingTrack.textContent = '';
+                }
 
                 // Encontrando e atualizando os recordes de pista
                 const records = { pista1: { tempo: Infinity, nome: '', categoria: '' }, pista2: { tempo: Infinity, nome: '', categoria: '' } };
@@ -451,8 +477,6 @@
                     elements.recordPista2Info.textContent = 'Aguardando...';
                 }
                 
-                // Lógica para animação de novo recorde (se necessário)
-                // A verificação de recorde precisa ser feita aqui, após o fetch
                 const checkAndAnimateRecord = (tempo, pistaId) => {
                     const pista = pistaRecords[pistaId];
                     if (tempo > 0 && tempo < pista.record) {
@@ -475,17 +499,6 @@
                         somaMelhoresTempos: c.melhorTempoP1 + c.melhorTempoP2
                     }))
                     .sort((a, b) => a.somaMelhoresTempos - b.somaMelhoresTempos);
-
-                if (rankingArray.length > 0) {
-                    const king = rankingArray[0];
-                    elements.kingName.textContent = king.nome;
-                    elements.kingCategory.textContent = king.categoria;
-                    elements.kingTime.textContent = king.somaMelhoresTempos.toFixed(3) + 's';
-                } else {
-                    elements.kingName.textContent = 'Aguardando tempos completos';
-                    elements.kingCategory.textContent = 'Nenhuma somatória registrada';
-                    elements.kingTime.textContent = '';
-                }
 
                 const categorias = new Set(Object.values(competidores).map(c => c.categoria).filter(c => c));
                 const categoriasArray = ['TODOS', ...Array.from(categorias).sort()];
@@ -523,11 +536,12 @@
                 }
             } catch (error) {
                 console.error("Falha na requisição ao Google Apps Script:", error);
-                elements.rankingBody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Erro de conexão com o Apps Script: ${error.message}</td></tr>`;
+                // AQUI NÃO FAZEMOS NADA. Apenas logamos o erro para debug.
+                // O código não modifica os elementos do dashboard, mantendo os dados antigos.
             }
         }
         
-        setInterval(updateRanking, 5000);
+        setInterval(updateRanking, 3000); // Exemplo com 3 segundos
         
         document.addEventListener('DOMContentLoaded', () => {
             updateRanking();
@@ -535,5 +549,3 @@
     </script>
 </body>
 </html>
-
-
