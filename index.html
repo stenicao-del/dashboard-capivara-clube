@@ -302,8 +302,8 @@
         // --- CONFIGURAÇÃO ---
         const googleScriptURL = "https://script.google.com/macros/s/AKfycbwsdGxPrl-eaQcaGC5xFHgQO1QkfGYly2YcF07UjAFHGedOPycz4wcHNA9MZLkEI8g/exec";
         
-        // 🚀 CORRIGIDO: Usando o protocolo ws:// e a porta 8080 do Mosquitto para conexão via WebSockets
-        const mqttServer = 'ws://test.mosquitto.org:8080/mqtt'; 
+        // ✅ CORRIGIDO: Usando o protocolo wss:// (WebSockets Seguros) e a porta 8081 para conexão em HTTPS
+        const mqttServer = 'wss://test.mosquitto.org:8081/mqtt'; 
         const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
         
         // Tópicos que o seu ESP está publicando
