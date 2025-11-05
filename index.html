@@ -272,7 +272,6 @@
         <div class="category-filter">
             <label for="categoria">Filtrar por Categoria:</label>
             <select id="categoria" onchange="updateRanking()"></select>
-            
         </div>
 
         <div class="ranking-section">
@@ -303,8 +302,7 @@
         // --- CONFIGURAÇÃO ---
         const googleScriptURL = "https://script.google.com/macros/s/AKfycbwsdGxPrl-eaQcaGC5xFHgQO1QkfGYly2YcF07UjAFHGedOPycz4wcHNA9MZLkEI8g/exec";
         
-        // 🚀 CORREÇÃO PARA GITHUB PAGES (HTTPS):
-        // Usamos o protocolo WebSocket Seguro (wss://) na porta 8081 para conexão via WebSockets
+        // ✅ CORRIGIDO: Usando o protocolo wss:// (WebSockets Seguros) e a porta 8081 para compatibilidade com HTTPS (GitHub Pages)
         const mqttServer = 'wss://test.mosquitto.org:8081/mqtt'; 
         const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
         
