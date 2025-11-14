@@ -271,7 +271,7 @@
 
         <div class="category-filter">
             <label for="categoria">Filtrar por Categoria:</label>
-            <select id="categoria" onchange="updateRanking()"></select>
+            <select id="categoria" onchange="processDataAndRender()"></select>
         </div>
 
         <div class="ranking-section">
@@ -291,6 +291,9 @@
                             </tr>
                         </thead>
                         <tbody id="ranking-body">
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: #999;">Carregando dados...</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -300,18 +303,21 @@
 
     <script>
         // --- CONFIGURAÇÃO ---
-        const googleScriptURL = "https://script.google.com/macros/s/AKfycbwsdGxPrl-eaQcaGC5xFHgQO1QkfGYly2YcF07UjAFHGedOPycz4wcHNA9MZLkEI8g/exec";
+        // 🔑 SUBSTITUA ESTA URL PELA SUA URL REAL DO WEB APP DO GOOGLE APPS SCRIPT
+        const googleScriptURL = "https://script.google.com/macros/s/AKfycbwWXqUgtQ3toHno_H3c-7RkvWN6M4wRGbM2g2n2TVMG8qlIZpop0nPDos4phmb6kZg/exec";
         
-        // ✅ CORRIGIDO: Usando o protocolo wss:// (WebSockets Seguros) e a porta 8081 para conexão em HTTPS
-        const mqttServer = 'wss://test.mosquitto.org:8081/mqtt'; 
+        // 🚀 Configurações MQTT (Mantidas, pois rodam localmente no navegador)
+        const mqttServer = 'ws://192.168.0.178:9001'; 
         const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
         
-        // Tópicos que o seu ESP está publicando
         const TOPIC_TEMPO_FINAL_P1 = "cronometro/resultado/pista1";
         const TOPIC_TEMPO_FINAL_P2 = "cronometro/resultado/pista2";
         const TOPIC_LCD_STATUS = "cronometro/lcd";
 
         const client = mqtt.connect(mqttServer, { clientId: clientId });
+
+        // Variável GLOBAL para armazenar os dados do Apps Script
+        let globalRawData = [];
 
         const elements = {
             connectionStatus: document.getElementById('connection-status'),
@@ -349,28 +355,32 @@
             }
         };
 
+        // --- Lógica MQTT ---
         client.on('connect', () => {
-            console.log('Conectado ao broker MQTT.');
-            elements.connectionStatus.textContent = 'Conectado';
+            console.log('Conectado ao broker MQTT (Local).');
+            elements.connectionStatus.textContent = 'Conectado (Local)';
             elements.connectionStatus.style.color = '#4CAF50';
             
             client.subscribe(TOPIC_TEMPO_FINAL_P1);
             client.subscribe(TOPIC_TEMPO_FINAL_P2);
             client.subscribe(TOPIC_LCD_STATUS);
-            
-            console.log('Inscrito nos tópicos de resultado final.');
-            updateRanking();
         });
 
         client.on('error', (error) => {
             console.error('Erro de conexão MQTT:', error);
-            elements.connectionStatus.textContent = 'Erro';
+            elements.connectionStatus.textContent = 'Erro de Conexão (Local)';
             elements.connectionStatus.style.color = '#F44336';
+        });
+        
+        client.on('close', () => {
+            console.log('Conexão MQTT fechada.');
+            elements.connectionStatus.textContent = 'Desconectado (Local)';
+            elements.connectionStatus.style.color = '#FF5722';
         });
 
         client.on('message', (topic, message) => {
             const messageString = message.toString();
-            console.log(`Mensagem recebida no tópico ${topic}: ${messageString}`);
+            // console.log(`Mensagem recebida no tópico ${topic}: ${messageString}`);
 
             if (topic === TOPIC_TEMPO_FINAL_P1) {
                 const tempo = parseFloat(messageString);
@@ -386,166 +396,210 @@
             }
         });
 
-        async function updateRanking() {
-            try {
-                const response = await fetch(googleScriptURL);
-                if (!response.ok) {
-                    throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
-                }
-                const data = await response.json();
-                
-                // Se a resposta do Apps Script indicar um erro, não atualizamos o dashboard.
-                if (data.error) {
-                    throw new Error(`Erro do Apps Script: ${data.error}`);
-                }
-                
-                // O código abaixo só é executado se a requisição foi um sucesso.
-                const competidores = {};
-                data.forEach(item => {
-                    const id = item.id_p1 || item.id_p2;
-                    const nome = item.nome_p1 || item.nome_p2;
-                    const categoria = item.categoria_p1 || item.categoria_p2;
+        // --- Lógica Apps Script (JSONP) ---
+        
+        /**
+         * FUNÇÃO 1: Dispara a requisição JSONP ao Apps Script.
+         */
+        function requestDataFromGAS() {
+            const scriptUrl = `${googleScriptURL}?callback=handleGASData`; 
 
-                    if (!competidores[id]) {
-                        competidores[id] = { nome: nome, categoria: categoria, melhorTempoP1: Infinity, melhorTempoP2: Infinity };
-                    }
-                    if (item.tempo_p1 > 0) {
-                        competidores[id].melhorTempoP1 = Math.min(competidores[id].melhorTempoP1, item.tempo_p1);
-                    }
-                    if (item.tempo_p2 > 0) {
-                        competidores[id].melhorTempoP2 = Math.min(competidores[id].melhorTempoP2, item.tempo_p2);
-                    }
-                });
+            const existingScript = document.getElementById('gas-script');
+            if (existingScript) {
+                existingScript.remove();
+            }
 
-                // Encontrando o Rei da Pista (menor tempo geral)
-                let kingOfTheTrack = { tempo: Infinity, nome: '', categoria: '', pista: '' };
-                data.forEach(item => {
-                    if (item.tempo_p1 > 0 && item.tempo_p1 < kingOfTheTrack.tempo) {
-                        kingOfTheTrack.tempo = item.tempo_p1;
-                        kingOfTheTrack.nome = item.nome_p1;
-                        kingOfTheTrack.categoria = item.categoria_p1;
-                        kingOfTheTrack.pista = 'Pista 1';
-                    }
-                    if (item.tempo_p2 > 0 && item.tempo_p2 < kingOfTheTrack.tempo) {
-                        kingOfTheTrack.tempo = item.tempo_p2;
-                        kingOfTheTrack.nome = item.nome_p2;
-                        kingOfTheTrack.categoria = item.categoria_p2;
-                        kingOfTheTrack.pista = 'Pista 2';
-                    }
-                });
+            const script = document.createElement('script');
+            script.src = scriptUrl;
+            script.id = 'gas-script';
+            script.onerror = () => {
+                console.error("Erro ao carregar o script do Apps Script.");
+            };
+            document.head.appendChild(script);
+        }
+
+        /**
+         * FUNÇÃO 2: Callback do Apps Script. Armazena os dados e chama o processamento.
+         */
+        window.handleGASData = function(data) {
+            if (data.status === 'error') {
+                console.error(`Erro do Apps Script: ${data.message}`);
+                return;
+            }
+
+            // ARMAZENA OS DADOS GLOBALMENTE
+            globalRawData = data;
+            
+            // CHAMA A FUNÇÃO DE PROCESSAMENTO LOCAL
+            processDataAndRender(); 
+        }
+
+        /**
+         * FUNÇÃO 3: Processa os dados locais para gerar o ranking e atualizar caixas de recorde.
+         * É chamada após receber novos dados ou quando o filtro muda.
+         */
+        function processDataAndRender() {
+            const rawData = globalRawData;
+            
+            if (rawData.length === 0) {
+                elements.rankingBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #999;">Nenhum dado de tempo encontrado no Apps Script.</td></tr>`;
+                return;
+            }
+
+            // -------------------- 1. Mapeamento de Pilotos para encontrar Melhores Tempos --------------------
+            const competidores = {};
+            const categorias = new Set();
+            
+            rawData.forEach(item => {
+                // Tenta pegar os dados do piloto 1
+                let id = item.id_p1;
+                let nome = item.nome_p1;
+                let categoria = item.categoria_p1;
+
+                if (!id) { // Se não houver P1, tenta P2 (caso a linha só tenha P2)
+                    id = item.id_p2;
+                    nome = item.nome_p2;
+                    categoria = item.categoria_p2;
+                }
                 
-                // Atualiza a exibição do Rei da Pista
-                if (kingOfTheTrack.tempo !== Infinity) {
-                    elements.kingTime.textContent = kingOfTheTrack.tempo.toFixed(3) + 's';
-                    elements.kingPilotoInfo.textContent = `${kingOfTheTrack.nome} - ${kingOfTheTrack.categoria}`;
-                    elements.kingTrack.textContent = kingOfTheTrack.pista;
+                if (!id || !nome || !categoria) return;
+
+                categorias.add(categoria);
+
+                if (!competidores[id]) {
+                    competidores[id] = { id: id, nome: nome, categoria: categoria, melhorTempoP1: Infinity, melhorTempoP2: Infinity };
+                }
+                
+                if (item.tempo_p1 > 0) {
+                    competidores[id].melhorTempoP1 = Math.min(competidores[id].melhorTempoP1, item.tempo_p1);
+                }
+                if (item.tempo_p2 > 0) {
+                    competidores[id].melhorTempoP2 = Math.min(competidores[id].melhorTempoP2, item.tempo_p2);
+                }
+            });
+
+            // -------------------- 2. Encontrando Rei da Pista e Recordes Individuais --------------------
+            let kingOfTheTrack = { tempo: Infinity, nome: '', categoria: '', pista: '' };
+            let records = { pista1: { tempo: Infinity, nome: '', categoria: '' }, pista2: { tempo: Infinity, nome: '', categoria: '' } };
+
+            rawData.forEach(item => {
+                // Rei da Pista (melhor tempo geral)
+                if (item.tempo_p1 > 0 && item.tempo_p1 < kingOfTheTrack.tempo) {
+                    kingOfTheTrack.tempo = item.tempo_p1;
+                    kingOfTheTrack.nome = item.nome_p1;
+                    kingOfTheTrack.categoria = item.categoria_p1;
+                    kingOfTheTrack.pista = 'Pista 1';
+                }
+                if (item.tempo_p2 > 0 && item.tempo_p2 < kingOfTheTrack.tempo) {
+                    kingOfTheTrack.tempo = item.tempo_p2;
+                    kingOfTheTrack.nome = item.nome_p2;
+                    kingOfTheTrack.categoria = item.categoria_p2;
+                    kingOfTheTrack.pista = 'Pista 2';
+                }
+                
+                // Recorde da Pista 1
+                if (item.tempo_p1 > 0 && item.tempo_p1 < records.pista1.tempo) {
+                    records.pista1 = { tempo: item.tempo_p1, nome: item.nome_p1, categoria: item.categoria_p1 };
+                }
+                // Recorde da Pista 2
+                if (item.tempo_p2 > 0 && item.tempo_p2 < records.pista2.tempo) {
+                    records.pista2 = { tempo: item.tempo_p2, nome: item.nome_p2, categoria: item.categoria_p2 };
+                }
+            });
+
+            // Atualiza o Rei da Pista
+            if (kingOfTheTrack.tempo !== Infinity) {
+                elements.kingTime.textContent = kingOfTheTrack.tempo.toFixed(3) + 's';
+                elements.kingPilotoInfo.textContent = `${kingOfTheTrack.nome} - ${kingOfTheTrack.categoria}`;
+                elements.kingTrack.textContent = kingOfTheTrack.pista;
+            } else {
+                elements.kingTime.textContent = '0.000s';
+                elements.kingPilotoInfo.textContent = 'Aguardando tempos...';
+                elements.kingTrack.textContent = '';
+            }
+
+            // Atualiza Recordes de Pista com animação
+            const checkAndAnimateRecord = (newRecord, pistaId) => {
+                const pista = pistaRecords[pistaId];
+                if (newRecord.tempo > 0 && newRecord.tempo < pista.record) {
+                    pista.record = newRecord.tempo;
+                    pista.boxEl.classList.add('new-record');
+                    setTimeout(() => {
+                        pista.boxEl.classList.remove('new-record');
+                    }, 3000);
+                }
+                // Atualiza a exibição
+                if (newRecord.tempo !== Infinity) {
+                    pista.timeEl.textContent = newRecord.tempo.toFixed(3) + 's';
+                    pista.infoEl.textContent = `${newRecord.nome} - ${newRecord.categoria}`;
                 } else {
-                    elements.kingTime.textContent = '0.000s';
-                    elements.kingPilotoInfo.textContent = 'Aguardando tempos...';
-                    elements.kingTrack.textContent = '';
+                    pista.timeEl.textContent = '0.000s';
+                    pista.infoEl.textContent = 'Aguardando...';
                 }
+            };
 
-                // Encontrando e atualizando os recordes de pista
-                const records = { pista1: { tempo: Infinity, nome: '', categoria: '' }, pista2: { tempo: Infinity, nome: '', categoria: '' } };
+            checkAndAnimateRecord(records.pista1, 'pista1');
+            checkAndAnimateRecord(records.pista2, 'pista2');
 
-                data.forEach(item => {
-                    if (item.tempo_p1 > 0 && item.tempo_p1 < records.pista1.tempo) {
-                        records.pista1.tempo = item.tempo_p1;
-                        records.pista1.nome = item.nome_p1;
-                        records.pista1.categoria = item.categoria_p1;
-                    }
-                    if (item.tempo_p2 > 0 && item.tempo_p2 < records.pista2.tempo) {
-                        records.pista2.tempo = item.tempo_p2;
-                        records.pista2.nome = item.nome_p2;
-                        records.pista2.categoria = item.categoria_p2;
-                    }
-                });
+            // -------------------- 3. Lógica de Ranking e Filtro --------------------
+            let rankingArray = Object.values(competidores)
+                // O ranking só considera quem tem tempo nas duas pistas
+                .filter(c => c.melhorTempoP1 !== Infinity && c.melhorTempoP2 !== Infinity)
+                .map(c => ({
+                    ...c,
+                    somaMelhoresTempos: c.melhorTempoP1 + c.melhorTempoP2
+                }))
+                // Ordena pela soma dos melhores tempos (menor é melhor)
+                .sort((a, b) => a.somaMelhoresTempos - b.somaMelhoresTempos);
 
-                // Atualiza a exibição do recorde e do piloto
-                if (records.pista1.tempo !== Infinity) {
-                    elements.recordPista1Time.textContent = records.pista1.tempo.toFixed(3) + 's';
-                    elements.recordPista1Info.textContent = `${records.pista1.nome} - ${records.pista1.categoria}`;
-                } else {
-                    elements.recordPista1Time.textContent = '0.000s';
-                    elements.recordPista1Info.textContent = 'Aguardando...';
-                }
-
-                if (records.pista2.tempo !== Infinity) {
-                    elements.recordPista2Time.textContent = records.pista2.tempo.toFixed(3) + 's';
-                    elements.recordPista2Info.textContent = `${records.pista2.nome} - ${records.pista2.categoria}`;
-                } else {
-                    elements.recordPista2Time.textContent = '0.000s';
-                    elements.recordPista2Info.textContent = 'Aguardando...';
-                }
-                
-                const checkAndAnimateRecord = (tempo, pistaId) => {
-                    const pista = pistaRecords[pistaId];
-                    if (tempo > 0 && tempo < pista.record) {
-                        pista.record = tempo;
-                        pista.boxEl.classList.add('new-record');
-                        setTimeout(() => {
-                            pista.boxEl.classList.remove('new-record');
-                        }, 3000);
-                    }
-                };
-
-                checkAndAnimateRecord(records.pista1.tempo, 'pista1');
-                checkAndAnimateRecord(records.pista2.tempo, 'pista2');
-
-
-                let rankingArray = Object.values(competidores)
-                    .filter(c => c.melhorTempoP1 !== Infinity && c.melhorTempoP2 !== Infinity)
-                    .map(c => ({
-                        ...c,
-                        somaMelhoresTempos: c.melhorTempoP1 + c.melhorTempoP2
-                    }))
-                    .sort((a, b) => a.somaMelhoresTempos - b.somaMelhoresTempos);
-
-                const categorias = new Set(Object.values(competidores).map(c => c.categoria).filter(c => c));
-                const categoriasArray = ['TODOS', ...Array.from(categorias).sort()];
-                const categoriaSelecionada = elements.categoriaSelect.value;
-                if (!document.getElementById('categoria').hasChildNodes() || !categoriasArray.includes(categoriaSelecionada)) {
-                    elements.categoriaSelect.innerHTML = categoriasArray.map(c => `<option value="${c}">${c}</option>`).join('');
-                }
-                
-                if (categoriaSelecionada && categoriaSelecionada !== 'TODOS') {
-                    rankingArray = rankingArray.filter(c => c.categoria === categoriaSelecionada);
-                }
-
-                elements.rankingBody.innerHTML = '';
-                
-                if (rankingArray.length > 0) {
-                    const melhorTempoTotal = rankingArray[0].somaMelhoresTempos;
-                    rankingArray.forEach((competidor, index) => {
-                        const diferenca = competidor.somaMelhoresTempos - melhorTempoTotal;
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${index + 1}</td>
-                            <td>${competidor.nome}</td>
-                            <td>${competidor.categoria}</td>
-                            <td>${competidor.melhorTempoP1.toFixed(3) + 's'}</td>
-                            <td>${competidor.melhorTempoP2.toFixed(3) + 's'}</td>
-                            <td>${competidor.somaMelhoresTempos.toFixed(3) + 's'}</td>
-                            <td>${diferenca > 0 ? '+' + diferenca.toFixed(3) + 's' : '-'}</td>
-                        `;
-                        elements.rankingBody.appendChild(row);
-                    });
-                } else {
+            // Recria as opções do filtro
+            const categoriasArray = ['TODOS', ...Array.from(categorias).sort()];
+            const categoriaSelecionada = elements.categoriaSelect.value;
+            
+            if (elements.categoriaSelect.options.length === 0 || !categoriasArray.includes(categoriaSelecionada)) {
+                 elements.categoriaSelect.innerHTML = categoriasArray.map(c => `<option value="${c}">${c}</option>`).join('');
+                 elements.categoriaSelect.value = categoriaSelecionada || 'TODOS';
+            }
+            
+            // Aplica o filtro se não for "TODOS"
+            if (categoriaSelecionada && categoriaSelecionada !== 'TODOS') {
+                rankingArray = rankingArray.filter(c => c.categoria === categoriaSelecionada);
+            }
+            
+            // Renderiza a tabela
+            elements.rankingBody.innerHTML = '';
+            
+            if (rankingArray.length > 0) {
+                const melhorTempoTotal = rankingArray[0].somaMelhoresTempos;
+                rankingArray.forEach((competidor, index) => {
+                    const diferenca = competidor.somaMelhoresTempos - melhorTempoTotal;
                     const row = document.createElement('tr');
-                    row.innerHTML = `<td colspan="7" style="text-align: center; color: #999;">Nenhum competidor com tempos registrados para ambas as pistas.</td>`;
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${competidor.nome}</td>
+                        <td>${competidor.categoria}</td>
+                        <td>${competidor.melhorTempoP1.toFixed(3) + 's'}</td>
+                        <td>${competidor.melhorTempoP2.toFixed(3) + 's'}</td>
+                        <td>${competidor.somaMelhoresTempos.toFixed(3) + 's'}</td>
+                        <td>${diferenca > 0 ? '+' + diferenca.toFixed(3) + 's' : '-'}</td>
+                    `;
                     elements.rankingBody.appendChild(row);
-                }
-            } catch (error) {
-                console.error("Falha na requisição ao Google Apps Script:", error);
-                // AQUI NÃO FAZEMOS NADA. Apenas logamos o erro para debug.
-                // O código não modifica os elementos do dashboard, mantendo os dados antigos.
+                });
+            } else {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="7" style="text-align: center; color: #999;">Nenhum competidor com tempos registrados para ambas as pistas na categoria selecionada.</td>`;
+                elements.rankingBody.appendChild(row);
             }
         }
         
-        setInterval(updateRanking, 3000); // Exemplo com 3 segundos
+        // --- INICIALIZAÇÃO E TIMER ---
+        
+        // Configuração de Atualização: 10 segundos para evitar a limitação de requisições do Apps Script.
+        setInterval(requestDataFromGAS, 10000); 
         
         document.addEventListener('DOMContentLoaded', () => {
-            updateRanking();
+            // Chamada inicial para carregar o ranking na primeira vez
+            requestDataFromGAS(); 
         });
     </script>
 </body>
