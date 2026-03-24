@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Proporcional - Cronômetro Capivara Clube</title>
+    <title>Dashboard Narração - Capivara Clube</title>
     <style>
-        /* --- ESTILOS VISUAIS E LAYOUT SPLIT --- */
+        /* --- ESTILOS MANTIDOS E AJUSTADOS --- */
         body {
             font-family: Arial, sans-serif;
             background-color: #121212;
@@ -62,17 +62,15 @@
             overflow-y: auto;
         }
 
-        /* --- CAIXAS PROPORCIONAIS --- */
         .time-box, .record-box, .king-box {
             background-color: #1e1e1e;
             border: 2px solid #333;
             border-radius: 12px;
-            padding: 15px;
+            padding: 10px;
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-height: 110px;
         }
 
         .king-box { 
@@ -92,7 +90,15 @@
             text-transform: uppercase;
         }
 
-        /* --- ÁREA DE ALERTAS ABAIXO DO FILTRO --- */
+        /* Tags de Categoria nos Recordes */
+        .cat-tag-record {
+            font-size: 0.75em;
+            color: #4CAF50;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
         .alert-zone {
             flex: 1;
             display: flex;
@@ -113,25 +119,11 @@
             border: 2px solid transparent;
         }
 
-        #leader-alert-inline {
-            background: rgba(255, 193, 7, 0.15);
-            border-color: #FFC107;
-            color: #FFC107;
-        }
+        #leader-alert-inline { background: rgba(255, 193, 7, 0.15); border-color: #FFC107; color: #FFC107; }
+        #king-alert-inline { background: rgba(76, 175, 80, 0.15); border-color: #4CAF50; color: #4CAF50; }
 
-        #king-alert-inline {
-            background: rgba(76, 175, 80, 0.15);
-            border-color: #4CAF50;
-            color: #4CAF50;
-            box-shadow: 0 0 15px rgba(76, 175, 80, 0.1);
-        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* --- TABELA E FILTROS --- */
         table { width: 100%; border-collapse: collapse; }
         th { background-color: #444; color: #FFC107; padding: 10px; text-align: left; position: sticky; top: 0; z-index: 5; }
         td { padding: 8px 10px; border-bottom: 1px solid #333; font-size: 0.9em; }
@@ -171,7 +163,8 @@
                 <h2>👑 REI DA PISTA</h2>
                 <div class="king-info">
                     <div id="king-time" class="tempo">0.000s</div>
-                    <div id="king-piloto-info" style="font-size:1.4em; color:#4CAF50; font-weight: bold;">---</div>
+                    <div id="king-piloto-info" style="font-size:1.4em; color:#fff; font-weight: bold;">---</div>
+                    <div id="king-cat-info" class="cat-tag-record">CATEGORIA</div>
                 </div>
             </div>
 
@@ -179,12 +172,14 @@
                 <div class="record-box">
                     <h2>RECORD P1</h2>
                     <div id="record-pista1-time" class="record-display">0.000s</div>
-                    <div id="record-pista1-info" style="color:#fff; font-size: 0.8em;">---</div>
+                    <div id="record-pista1-info" style="color:#fff; font-size: 0.9em; font-weight: bold;">---</div>
+                    <div id="record-pista1-cat" class="cat-tag-record">---</div>
                 </div>
                 <div class="record-box">
                     <h2>RECORD P2</h2>
                     <div id="record-pista2-time" class="record-display">0.000s</div>
-                    <div id="record-pista2-info" style="color:#fff; font-size: 0.8em;">---</div>
+                    <div id="record-pista2-info" style="color:#fff; font-size: 0.9em; font-weight: bold;">---</div>
+                    <div id="record-pista2-cat" class="cat-tag-record">---</div>
                 </div>
             </div>
 
@@ -246,8 +241,11 @@
             recordPista2Time: document.getElementById('record-pista2-time'),
             recordPista1Info: document.getElementById('record-pista1-info'),
             recordPista2Info: document.getElementById('record-pista2-info'),
+            recordPista1Cat: document.getElementById('record-pista1-cat'), // Novo
+            recordPista2Cat: document.getElementById('record-pista2-cat'), // Novo
             kingTime: document.getElementById('king-time'),
             kingPilotoInfo: document.getElementById('king-piloto-info'),
+            kingCatInfo: document.getElementById('king-cat-info'), // Novo
             leaderAlert: document.getElementById('leader-alert-inline'),
             kingAlert: document.getElementById('king-alert-inline')
         };
@@ -285,19 +283,32 @@
                 const response = await fetch(googleScriptURL);
                 const data = await response.json();
                 const competidores = {};
-                let king = { tempo: Infinity, nome: '---' };
-                let rP1 = { tempo: Infinity, nome: '---' };
-                let rP2 = { tempo: Infinity, nome: '---' };
+                
+                // Agora os records guardam nome e categoria
+                let king = { tempo: Infinity, nome: '---', cat: '---' };
+                let rP1 = { tempo: Infinity, nome: '---', cat: '---' };
+                let rP2 = { tempo: Infinity, nome: '---', cat: '---' };
 
                 data.forEach(item => {
+                    // Verificação P1
                     if (item.tempo_p1 > 0) {
-                        if (item.tempo_p1 < rP1.tempo) { rP1.tempo = item.tempo_p1; rP1.nome = item.nome_p1; }
-                        if (item.tempo_p1 < king.tempo) { king.tempo = item.tempo_p1; king.nome = item.nome_p1; }
+                        if (item.tempo_p1 < rP1.tempo) { 
+                            rP1.tempo = item.tempo_p1; rP1.nome = item.nome_p1; rP1.cat = item.categoria_p1; 
+                        }
+                        if (item.tempo_p1 < king.tempo) { 
+                            king.tempo = item.tempo_p1; king.nome = item.nome_p1; king.cat = item.categoria_p1; 
+                        }
                     }
+                    // Verificação P2
                     if (item.tempo_p2 > 0) {
-                        if (item.tempo_p2 < rP2.tempo) { rP2.tempo = item.tempo_p2; rP2.nome = item.nome_p2; }
-                        if (item.tempo_p2 < king.tempo) { king.tempo = item.tempo_p2; king.nome = item.nome_p2; }
+                        if (item.tempo_p2 < rP2.tempo) { 
+                            rP2.tempo = item.tempo_p2; rP2.nome = item.nome_p2; rP2.cat = item.categoria_p2; 
+                        }
+                        if (item.tempo_p2 < king.tempo) { 
+                            king.tempo = item.tempo_p2; king.nome = item.nome_p2; king.cat = item.categoria_p2; 
+                        }
                     }
+
                     const processRow = (id, nome, cat, tempo, pista) => {
                         if (!id) return;
                         if (!competidores[id]) competidores[id] = { nome: nome, categoria: cat, p1: Infinity, p2: Infinity };
@@ -307,47 +318,48 @@
                     processRow(item.id_p2, item.nome_p2, item.categoria_p2, item.tempo_p2, 'p2');
                 });
 
-                // Alerta Rei da Pista (Global)
+                // Alerta Rei da Pista
                 if (king.tempo < lastKingTime && lastKingTime !== Infinity) showKingAlert(king.nome, king.tempo);
                 lastKingTime = king.tempo;
 
+                // Atualiza Visual Rei
                 elements.kingTime.textContent = king.tempo === Infinity ? "0.000s" : king.tempo.toFixed(3) + "s";
                 elements.kingPilotoInfo.textContent = king.nome;
-                elements.recordPista1Time.textContent = rP1.tempo.toFixed(3) + "s";
-                elements.recordPista1Info.textContent = rP1.nome;
-                elements.recordPista2Time.textContent = rP2.tempo.toFixed(3) + "s";
-                elements.recordPista2Info.textContent = rP2.nome;
+                elements.kingCatInfo.textContent = king.cat;
 
-                // Montar Ranking Base
+                // Atualiza Visual Records P1 e P2
+                elements.recordPista1Time.textContent = rP1.tempo === Infinity ? "0.000s" : rP1.tempo.toFixed(3) + "s";
+                elements.recordPista1Info.textContent = rP1.nome;
+                elements.recordPista1Cat.textContent = rP1.cat;
+
+                elements.recordPista2Time.textContent = rP2.tempo === Infinity ? "0.000s" : rP2.tempo.toFixed(3) + "s";
+                elements.recordPista2Info.textContent = rP2.nome;
+                elements.recordPista2Cat.textContent = rP2.cat;
+
+                // Ranking e Filtros
                 let rankingArray = Object.values(competidores)
                     .filter(c => c.p1 !== Infinity && c.p2 !== Infinity)
                     .map(c => ({ ...c, soma: c.p1 + c.p2 }))
                     .sort((a, b) => a.soma - b.soma);
 
-                // Gerenciar Categorias no Select
                 const sel = elements.categoriaSelect.value;
                 const cats = ['TODOS', ...new Set(Object.values(competidores).map(c => c.categoria))].sort();
                 if (elements.categoriaSelect.options.length !== cats.length) {
                     elements.categoriaSelect.innerHTML = cats.map(c => `<option value="${c}" ${c===sel?'selected':''}>${c}</option>`).join('');
                 }
 
-                // --- CORREÇÃO: FILTRAR ANTES DE VERIFICAR LIDERANÇA ---
                 if (sel && sel !== 'TODOS') {
                     rankingArray = rankingArray.filter(c => c.categoria === sel);
                 }
 
-                // Verificação de Líder Contextual (dentro do filtro)
                 if (rankingArray.length > 0) {
                     const leaderNow = rankingArray[0].nome;
-                    if (lastLeaderName !== null && lastLeaderName !== leaderNow) {
-                        showLeaderAlert(leaderNow);
-                    }
+                    if (lastLeaderName !== null && lastLeaderName !== leaderNow) showLeaderAlert(leaderNow);
                     lastLeaderName = leaderNow;
                 } else {
                     lastLeaderName = null;
                 }
 
-                // Renderizar Tabela
                 elements.rankingBody.innerHTML = '';
                 rankingArray.forEach((c, i) => {
                     const row = document.createElement('tr');
